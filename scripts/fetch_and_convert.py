@@ -74,9 +74,7 @@ def fetch_url(url: str, timeout: int = 30) -> Optional[str]:
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = resp.read()
-            # 尝试解码
             text = data.decode("utf-8", errors="ignore")
-            # 检测是否为 base64 编码
             stripped = text.strip()
             if re.match(r'^[A-Za-z0-9+/=]+$', stripped) and len(stripped) > 100:
                 try:
@@ -96,10 +94,7 @@ def fetch_url(url: str, timeout: int = 30) -> Optional[str]:
 
 
 def extract_nodes(text: str) -> List[ProxyNode]:
-    """
-    从文本中提取所有代理节点
-    支持的协议前缀: vmess:// vless:// ss:// ssr:// trojan:// hysteria2://
-    """
+    """从文本中提取所有代理节点"""
     nodes = []
     lines = text.split("\n")
     
@@ -108,7 +103,6 @@ def extract_nodes(text: str) -> List[ProxyNode]:
         if not line:
             continue
         
-        # 识别协议类型
         protocol = None
         for p in ["vmess://", "vless://", "ss://", "ssr://", "trojan://", "hysteria2://"]:
             if line.startswith(p):
@@ -126,17 +120,13 @@ def extract_nodes(text: str) -> List[ProxyNode]:
 
 
 def parse_node(raw_line: str, protocol: str) -> Optional[ProxyNode]:
-    """
-    解析单行节点，提取关键字段用于去重和存活测试
-    注意: 这里只做轻量解析，不追求完整字段提取
-    """
+    """解析单行节点，提取关键字段用于去重和存活测试"""
     name = "unnamed"
     server = ""
     port = 0
     
     try:
         if protocol == "vmess":
-            # vmess://base64json
             b64 = raw_line[8:]
             json_str = base64.b64decode(b64).decode("utf-8")
             info = json.loads(json_str)
@@ -146,7 +136,6 @@ def parse_node(raw_line: str, protocol: str) -> Optional[ProxyNode]:
             fp = f"{protocol}:{server}:{port}:{info.get('id','')[:8]}"
             
         elif protocol == "vless":
-            # vless://uuid@server:port?params#name
             m = re.match(r'vless://([^@]+)@([^:]+):(\d+)', raw_line)
             if m:
                 server = m.group(2)
@@ -155,7 +144,6 @@ def parse_node(raw_line: str, protocol: str) -> Optional[ProxyNode]:
                 fp = f"{protocol}:{server}:{port}:{m.group(1)[:8]}"
                 
         elif protocol == "ss":
-            # ss://base64@server:port#name 或 ss://method:password@server:port#name
             if "@" in raw_line:
                 rest = raw_line[5:]
                 m = re.match(r'[^@]*@([^:]+):(\d+)', rest)
@@ -166,7 +154,6 @@ def parse_node(raw_line: str, protocol: str) -> Optional[ProxyNode]:
                     fp = f"{protocol}:{server}:{port}"
                     
         elif protocol == "trojan":
-            # trojan://password@server:port?params#name
             m = re.match(r'trojan://[^@]*@([^:]+):(\d+)', raw_line)
             if m:
                 server = m.group(1)
@@ -175,7 +162,6 @@ def parse_node(raw_line: str, protocol: str) -> Optional[ProxyNode]:
                 fp = f"{protocol}:{server}:{port}"
                 
         elif protocol == "hysteria2":
-            # hysteria2://password@server:port?params#name
             m = re.match(r'hysteria2://[^@]*@([^:]+):(\d+)', raw_line)
             if m:
                 server = m.group(1)
@@ -184,7 +170,6 @@ def parse_node(raw_line: str, protocol: str) -> Optional[ProxyNode]:
                 fp = f"{protocol}:{server}:{port}"
                 
         elif protocol == "ssr":
-            # ssr://base64
             b64 = raw_line[6:]
             decoded = base64.b64decode(b64).decode("utf-8")
             parts = decoded.split(":")
@@ -214,10 +199,7 @@ def parse_node(raw_line: str, protocol: str) -> Optional[ProxyNode]:
 
 
 def deduplicate(nodes: List[ProxyNode]) -> List[ProxyNode]:
-    """
-    去重: 基于指纹去除完全相同的节点
-    保留先出现的
-    """
+    """去重: 基于指纹去除完全相同的节点，保留先出现的"""
     seen: Set[str] = set()
     unique = []
     dup_count = 0
@@ -234,11 +216,7 @@ def deduplicate(nodes: List[ProxyNode]) -> List[ProxyNode]:
 
 
 def test_alive_tcp(node: ProxyNode) -> bool:
-    """
-    轻量级 TCP 握手存活测试
-    仅测试 TCP 连接是否能建立，不做完整协议握手
-    这是最轻量的检测方式，适合 GitHub Actions 环境
-    """
+    """轻量级 TCP 握手存活测试"""
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(TEST_TIMEOUT)
@@ -246,7 +224,6 @@ def test_alive_tcp(node: ProxyNode) -> bool:
         sock.close()
         return result == 0
     except socket.gaierror:
-        # DNS 解析失败
         return False
     except socket.timeout:
         return False
@@ -255,9 +232,7 @@ def test_alive_tcp(node: ProxyNode) -> bool:
 
 
 def filter_alive(nodes: List[ProxyNode]) -> List[ProxyNode]:
-    """
-    并发存活测试，过滤死节点
-    """
+    """并发存活测试，过滤死节点"""
     if not ENABLE_ALIVE_TEST:
         log("[存活测试] 已禁用，跳过")
         return nodes
@@ -277,7 +252,7 @@ def filter_alive(nodes: List[ProxyNode]) -> List[ProxyNode]:
                     alive_nodes.append(node)
                 else:
                     dead_count += 1
-                    if dead_count <= 5:  # 只打印前5个死节点
+                    if dead_count <= 5:
                         log(f"  [死节点] {node.name} ({node.server}:{node.port})")
             except TimeoutError:
                 dead_count += 1
@@ -293,15 +268,12 @@ def filter_alive(nodes: List[ProxyNode]) -> List[ProxyNode]:
 # ============================================================
 
 def generate_clash_yaml(nodes: List[ProxyNode]) -> str:
-    """
-    生成 Clash Meta 配置文件 (YAML 格式)
-    兼容 Clash Verge / Clash Meta / mihomo
-    """
+    """生成 Clash Meta 配置文件 (YAML 格式)，兼容 Clash Verge / mihomo"""
     proxies = []
     proxy_names = []
     
     for i, node in enumerate(nodes):
-        name = f"节点{i+1}_{node.name}"[:40]  # 截断长名称
+        name = f"节点{i+1}_{node.name}"[:40]
         
         if node.protocol == "vmess":
             try:
@@ -320,7 +292,6 @@ def generate_clash_yaml(nodes: List[ProxyNode]) -> str:
                     "alterId": int(info.get("aid", 0)),
                     "cipher": "auto",
                 }
-                # ws/tls 传输参数
                 net = info.get("net", "tcp")
                 if net == "ws":
                     proxy["ws-opts"] = {"path": info.get("path", "/"), "headers": {"Host": info.get("host", "")}}
@@ -362,12 +333,10 @@ def generate_clash_yaml(nodes: List[ProxyNode]) -> str:
                 proxies.append(proxy)
                 
         elif node.protocol == "ss":
-            # 解析 ss 链接
             rest = node.raw_line[5:]
             method_password = ""
             if "@" in rest:
                 mp_part = rest.split("@")[0]
-                # 可能是 base64 编码的 method:password
                 try:
                     decoded = base64.b64decode(mp_part + "==").decode("utf-8")
                     if ":" in decoded:
@@ -418,7 +387,6 @@ def generate_clash_yaml(nodes: List[ProxyNode]) -> str:
         
         proxy_names.append(name)
     
-    # 构建 Clash 完整配置
     config = {
         "mixed-port": 7890,
         "allow-lan": False,
@@ -462,10 +430,7 @@ def generate_clash_yaml(nodes: List[ProxyNode]) -> str:
 
 
 def generate_singbox_json(nodes: List[ProxyNode]) -> str:
-    """
-    生成 sing-box 配置文件 (JSON 格式)
-    兼容 sing-box 1.8+
-    """
+    """生成 sing-box 配置文件 (JSON 格式)，兼容 sing-box 1.8+"""
     outbounds = []
     tag_index = 1
     
@@ -577,7 +542,6 @@ def generate_singbox_json(nodes: List[ProxyNode]) -> str:
         except Exception as e:
             log(f"  [sing-box转换跳过] {node.name}: {e}")
     
-    # 选择器标签列表
     tags = [o["tag"] for o in outbounds]
     
     config = {
@@ -603,9 +567,8 @@ def generate_singbox_json(nodes: List[ProxyNode]) -> str:
                 "type": "select",
                 "tag": "节点选择",
                 "outbounds": ["自动选择", "direct"] + tags,
-                *outbounds,
             },
-        ],
+        ] + outbounds,
         "route": {
             "rules": [
                 {"ip_is_private": True, "outbound": "direct"},
@@ -632,26 +595,22 @@ def main():
     log("Proxy Subscription Aggregator Started")
     log("=" * 60)
     
-    # 1. 读取订阅链接
     sub_urls_raw = os.getenv(SUB_URLS_ENV, "")
     if not sub_urls_raw:
         log("[错误] 未设置 SUB_URLS 环境变量!")
         sys.exit(1)
     
-    # 支持逗号、换行、空格分隔
     sub_urls = re.split(r'[,\n\s]+', sub_urls_raw.strip())
     sub_urls = [u.strip() for u in sub_urls if u.strip()]
     
     log(f"[订阅链接] 共 {len(sub_urls)} 个:")
     for i, url in enumerate(sub_urls, 1):
-        # 隐藏敏感信息，只显示域名
         try:
             domain = url.split("//")[1].split("/")[0] if "//" in url else url
             log(f"  {i}. {domain}")
         except:
             log(f"  {i}. ***")
     
-    # 2. 抓取所有订阅
     log("\n[步骤1] 开始抓取订阅...")
     all_text = ""
     total_fetched = 0
@@ -669,7 +628,6 @@ def main():
     
     log(f"[抓取完成] 成功: {total_fetched}/{len(sub_urls)}, 总长度: {len(all_text)}")
     
-    # 3. 提取节点
     log("\n[步骤2] 提取节点...")
     nodes = extract_nodes(all_text)
     log(f"[提取完成] 共发现 {len(nodes)} 个节点")
@@ -678,31 +636,24 @@ def main():
         log("[错误] 未提取到任何有效节点!")
         sys.exit(1)
     
-    # 4. 去重
     log("\n[步骤3] 去重处理...")
     nodes = deduplicate(nodes)
     
-    # 5. 存活测试
     log("\n[步骤4] 存活测试...")
     nodes = filter_alive(nodes)
     
     if not nodes:
         log("[警告] 所有节点均为死节点! 输出去重后的全部节点作为后备...")
-        # 重新使用去重后的结果
         nodes = deduplicate(extract_nodes(all_text))
     
-    # 6. 创建输出目录
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     
-    # 7. 生成各格式文件
     log("\n[步骤5] 生成输出文件...")
     
-    # Raw 文本
     raw_content = generate_raw_text(nodes)
     RAW_FILE.write_text(raw_content, encoding="utf-8")
     log(f"  ✓ raw.txt ({len(nodes)} 个节点)")
     
-    # Clash YAML
     try:
         import yaml
         clash_content = generate_clash_yaml(nodes)
@@ -716,18 +667,15 @@ def main():
         CLASH_FILE.write_text(clash_content, encoding="utf-8")
         log(f"  ✓ clash.yaml (已安装 PyYAML)")
     
-    # Sing-box JSON
     singbox_content = generate_singbox_json(nodes)
     SINGBOX_FILE.write_text(singbox_content, encoding="utf-8")
     log(f"  ✓ singbox.json")
     
-    # 8. 统计信息
     log("\n" + "=" * 60)
     log(f"完成! 最终有效节点数: {len(nodes)}")
     log(f"输出目录: {OUTPUT_DIR}")
     log("=" * 60)
     
-    # 输出摘要供 GitHub Actions 使用
     print(f"\n::set-output name=node_count::{len(nodes)}")
     print(f"::set-output name=raw_file::{RAW_FILE}")
     print(f"::set-output name=clash_file::{CLASH_FILE}")
