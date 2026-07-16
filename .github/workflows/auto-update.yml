@@ -58,7 +58,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: 'pip'
 
       # ----------------------------------------------------------
       # 步骤 3: 安装 Python 依赖
@@ -111,8 +110,8 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| 格式 | 链接 |" >> $GITHUB_STEP_SUMMARY
           echo "|------|------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Clash** | \`https://${{ github.repository_owner }}.github.io/${{ github.repository_name }}/clash.yaml\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Sing-box** | \`https://${{ github.repository_owner }}.github.io/${{ github.repository_name }}/singbox.json\` |" >> $GITHUB_STEP_SUMMARY
-          echo"| **原始文本** | \`https://${{ github.repository_owner }}.github.io/${{ github.repository_name }}/raw.txt\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Clash** | https://${{ github.repository_owner }}.github.io/${{ github.repository_name }}/clash.yaml |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Sing-box** | https://${{ github.repository_owner }}.github.io/${{ github.repository_name }}/singbox.json |" >> $GITHUB_STEP_SUMMARY
+          echo "| **原始文本** | https://${{ github.repository_owner }}.github.io/${{ github.repository_name }}/raw.txt |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "> ⚠️ **首次运行前请确保已配置 Secrets!**" >> $GITHUB_STEP_SUMMARY
