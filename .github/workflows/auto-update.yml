@@ -1,0 +1,118 @@
+# ============================================================
+# 全自动节点订阅聚合与管理系统
+# GitHub Actions 工作流配置
+# ============================================================
+#
+# 功能说明:
+#   ✅ 定时自动抓取多个私有订阅链接
+#   ✅ 自动去重（基于 server:port:protocol 指纹）
+#   ✅ TCP 存活测试（过滤死节点）
+#   ✅ 输出 Clash / Sing-box / 原始文本 三种格式
+#   ✅ 自动推送到 gh-pages 分支，生成永久静态链接
+#
+# 定时说明:
+#   Cron 表达式: "0 */6 * * *" = 每 6 小时运行一次
+#   UTC 时间，对应北京时间 06:00/12:00/18:00/00:00
+#   GitHub Actions 的 cron 有延迟容忍（最长 ~1小时），这是正常现象
+#
+# ============================================================
+
+name: Proxy Subscription Aggregator
+
+on:
+  # 定时触发 (UTC 时间)
+  schedule:
+    # 每 6 小时运行一次 (北京时间 6点/12点/18点/0点)
+    - cron: '0 */6 * * *'
+
+  # 手动触发（在仓库页面 Actions 标签页手动运行）
+  workflow_dispatch:
+
+  # 可选：推送到 main 分支时也触发（取消注释即可启用）
+  # push:
+  #   branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  aggregate:
+    name: 🔄 抓取、过滤、转换、发布
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # ----------------------------------------------------------
+      # 步骤 1: 检出代码
+      # ----------------------------------------------------------
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      # ----------------------------------------------------------
+      # 步骤 2: 设置 Python 环境
+      # ----------------------------------------------------------
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      # ----------------------------------------------------------
+      # 步骤 3: 安装 Python 依赖
+      # ----------------------------------------------------------
+      - name: 📦 Install Dependencies
+        run: |
+          pip install pyyaml requests --quiet
+
+      # ----------------------------------------------------------
+      # 步骤 4: 运行核心脚本（抓取 + 去重 + 存活测试 + 转换）
+      # ----------------------------------------------------------
+      - name: ⚙️ Run Aggregator Script
+        env:
+          # 🔒 从 GitHub Secrets 读取订阅链接（隐私保护！）
+          SUB_URLS: ${{ secrets.SUB_URLS }}
+          # 是否启用存活测试 (true/false)
+          ENABLE_ALIVE_TEST: ${{ vars.ENABLE_ALIVE_TEST || 'true' }}
+        run: |
+          python3 scripts/fetch_and_convert.py
+
+      # ----------------------------------------------------------
+      # 步骤 5: 部署到 gh-pages 分支（静态托管）
+      # ----------------------------------------------------------
+      - name: 🚀 Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: /tmp/proxy_output
+          publish_branch: gh-pages
+          force_orphan: false
+          commit_message: "🔄 自动更新订阅 $(date +'%Y-%m-%d %H:%M') [${{ github.run_id }}]"
+          destination_dir: ./
+          enable_jekyll: false
+
+      # ----------------------------------------------------------
+      # 步骤 6: 输出摘要信息
+      # ----------------------------------------------------------
+      - name: 📊 Summary
+        if: always()
+        run: |
+          echo "## 📋 运行摘要" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 项目 | 详情 |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| ⏰ 触发时间 | $(date -u '+%Y-%m-%d %H:%M:%S UTC') |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔗 触发方式 | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🏃 运行 ID | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📁 订阅链接（部署后可访问）" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 格式 | 链接 |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Clash** | \`https://${{ github.repository_owner }}.github.io/${{ github.repository_name }}/clash.yaml\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Sing-box** | \`https://${{ github.repository_owner }}.github.io/${{ github.repository_name }}/singbox.json\` |" >> $GITHUB_STEP_SUMMARY
+          echo"| **原始文本** | \`https://${{ github.repository_owner }}.github.io/${{ github.repository_name }}/raw.txt\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> ⚠️ **首次运行前请确保已配置 Secrets!**" >> $GITHUB_STEP_SUMMARY
