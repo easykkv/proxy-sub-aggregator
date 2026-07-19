@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import List, Dict, Set, Optional, Tuple
 from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
-import ssl
 
 # ============================================================
 # 配置区
@@ -201,9 +200,8 @@ def generate_demo_nodes() -> List[ProxyNode]:
     """当所有抓取失败时，生成示例节点用于验证全流程"""
     log("[演示模式] 生成示例节点以验证完整流程...")
     demos = []
-    # 示例 VMess 节点 (格式正确但服务器不可达，仅验证转换逻辑)
     vmess_info = {
-        "v": "2", "ps": "🇭🇰 HK-示例节点01", "add": "hk.example.com",
+        "v": "2", "ps": "\U0001f1ed\U0001f1f0 HK-\u793a\u4f8a\u8282\u70b901", "add": "hk.example.com",
         "port": "443", "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
         "aid": "0", "scy": "auto", "net": "ws", "type": "none",
         "host": "hk.example.com", "path": "/ws", "tls": "tls", "sni": "hk.example.com"
@@ -211,34 +209,33 @@ def generate_demo_nodes() -> List[ProxyNode]:
     vmess_b64 = base64.b64encode(json.dumps(vmess_info, ensure_ascii=False).encode()).decode()
     demos.append(ProxyNode(
         raw_line=f"vmess://{vmess_b64}", protocol="vmess",
-        name="🇭🇰 HK-示例节点01", server="hk.example.com", port=443,
+        name="\U0001f1ed\U0001f1f0 HK-\u793a\u4f8a\u8282\u70b901", server="hk.example.com", port=443,
         fingerprint=f"vmess:hk.example.com:443:a1b2c3d4"
     ))
     vmess_info2 = dict(vmess_info)
-    vmess_info2["ps"] = "🇯🇵 JP-示例节点02"
+    vmess_info2["ps"] = "\U0001f1ef\U0001f1f5 JP-\u793a\u4f8a\u8282\u70b902"
     vmess_info2["add"] = "jp.example.com"
     vmess_b64_2 = base64.b64encode(json.dumps(vmess_info2, ensure_ascii=False).encode()).decode()
     demos.append(ProxyNode(
         raw_line=f"vmess://{vmess_b64_2}", protocol="vmess",
-        name="🇯🇵 JP-示例节点02", server="jp.example.com", port=443,
+        name="\U0001f1ef\U0001f1f5 JP-\u793a\u4f8a\u8282\u70b902", server="jp.example.com", port=443,
         fingerprint=f"vmess:jp.example.com:443:a1b2c3d4"
     ))
-    # 示例 Trojan 节点
     demos.append(ProxyNode(
-        raw_line="trojan://password123@sg.example.com:443?sni=sg.example.com#🇸🇬 SG-示例节点03",
-        protocol="trojan", name="🇸🇬 SG-示例节点03",
+        raw_line="trojan://password123@sg.example.com:443?sni=sg.example.com#\U0001f1ec\U0001f1e8 SG-\u793a\u4f8a\u8282\u70b903",
+        protocol="trojan", name="\U0001f1ec\U0001f1e8 SG-\u793a\u4f8a\u8282\u70b903",
         server="sg.example.com", port=443,
         fingerprint="trojan:sg.example.com:443"
     ))
-    # 示例 SS 节点
-    ss_method_pwd = base64.b64encode(b"aes-256-gcm:testpwd123==".encode()).decode()
+    # FIX: use str.encode() not bytes.encode()
+    ss_method_pwd = base64.b64encode("aes-256-gcm:testpwd123==".encode()).decode()
     demos.append(ProxyNode(
-        raw_line=f"ss://{ss_method_pwd}@us.example.com:8388#🇺🇸 US-示例节点04",
-        protocol="ss", name="🇺🇸 US-示例节点04",
+        raw_line=f"ss://{ss_method_pwd}@us.example.com:8388#\U0001f1fa\U0001f1f8 US-\u793a\u4f8a\u8282\u70b904",
+        protocol="ss", name="\U0001f1fa\U0001f1f8 US-\u793a\u4f8a\u8282\u70b904",
         server="us.example.com", port=8388,
         fingerprint="ss:us.example.com:8388"
     ))
-    log(f"[演示模式] 生成了 {len(demos)} 个示例节点（请替换为真实订阅链接）")
+    log(f"[演示模式] 生成了 {len(demos)} \u4e2a\u793a\u4f8a\u8282\u70b9\uff08\u8bf7\u66ff\u6362\u4e3a\u771f\u5b9e\u8ba2\u9605\u94fe\u63a5\uff09")
     return demos
 
 # ============================================================
@@ -249,7 +246,7 @@ def generate_clash_yaml(nodes: List[ProxyNode]) -> str:
     proxies = []
     proxy_names = []
     for i, node in enumerate(nodes):
-        name = f"节点{i+1}_{node.name}"[:40]
+        name = f"\u8282\u70b9{i+1}_{node.name}"[:40]
         if node.protocol == "vmess":
             try:
                 b64 = node.raw_line[8:]
@@ -325,12 +322,12 @@ def generate_clash_yaml(nodes: List[ProxyNode]) -> str:
                "nameserver": ["https://dns.alidns.com/dns-query", "https://doh.pub/dns-query"]},
         "proxies": proxies,
         "proxy-groups": [
-            {"name": "✨ 自动选择", "type": "url-test", "proxies": proxy_names,
+            {"name": "\u2728 \u81ea\u52a8\u9009\u62e9", "type": "url-test", "proxies": proxy_names,
              "url": "http://www.gstatic.com/generate_204", "interval": 300, "tolerance": 50},
-            {"name": "🔯 节点选择", "type": "select",
-             "proxies": ["✨ 自动选择", "DIRECT"] + proxy_names},
+            {"name": "\U0001f52f \u8282\u70b9\u9009\u62e9", "type": "select",
+             "proxies": ["\u2728 \u81ea\u52a8\u9009\u62e9", "DIRECT"] + proxy_names},
         ],
-        "rules": ["GEOIP,CN,DIRECT", "MATCH,🔯 节点选择"],
+        "rules": ["GEOIP,CN,DIRECT", "MATCH,\U0001f52f \u8282\u70b9\u9009\u62e9"],
     }
     import yaml
     return yaml.dump(config, allow_unicode=True, default_flow_style=False, sort_keys=False)
@@ -404,7 +401,7 @@ def generate_singbox_json(nodes: List[ProxyNode]) -> str:
                     outbounds.append({"type": "hysteria2", "tag": tag, "server": node.server,
                                       "server_port": node.port, "password": m.group(1)})
         except Exception as e:
-            log(f"  [sing-box转换跳过] {node.name}: {e}")
+            log(f"  [sing-box\u8f6c\u6362\u8df3\u8fc7] {node.name}: {e}")
 
     tags = [o["tag"] for o in outbounds]
     config = {
@@ -412,14 +409,14 @@ def generate_singbox_json(nodes: List[ProxyNode]) -> str:
         "dns": {"servers": [{"address": "223.5.5.5"}, {"address": "119.29.29.29"}]},
         "inbounds": [{"type": "mixed", "tag": "mixed-in", "listen": "::", "listen_port": 2080}],
         "outbounds": [
-            {"type": "urltest", "tag": "自动选择", "outbounds": tags,
+            {"type": "urltest", "tag": "\u81ea\u52a8\u9009\u62e9", "outbounds": tags,
              "url": "http://www.gstatic.com/generate_204", "interval": "5m"},
-            {"type": "select", "tag": "节点选择", "outbounds": ["自动选择", "direct"] + tags},
+            {"type": "select", "tag": "\u8282\u70b9\u9009\u62e9", "outbounds": ["\u81ea\u52a8\u9009\u62e9", "direct"] + tags},
         ] + outbounds,
         "route": {
             "rules": [{"ip_is_private": True, "outbound": "direct"},
-                      {"geoip": {"code": "CN", "reverse": True}, "outbound": "自动选择"}],
-            "final": "自动选择",
+                      {"geoip": {"code": "CN", "reverse": True}, "outbound": "\u81ea\u52a8\u9009\u62e9"}],
+            "final": "\u81ea\u52a8\u9009\u62e9",
         },
     }
     return json.dumps(config, indent=2, ensure_ascii=False)
@@ -438,12 +435,12 @@ def main():
 
     sub_urls_raw = os.getenv(SUB_URLS_ENV, "")
     if not sub_urls_raw:
-        log("[警告] 未设置 SUB_URLS 环境变量! 使用演示模式...")
+        log("[\u8b66\u544a] \u672a\u8bbe\u7f6e SUB_URLS \u73af\u5883\u53d8\u91cf! \u4f7f\u7528\u6f14\u793a\u6a21\u5f0f...")
         nodes = generate_demo_nodes()
     else:
         sub_urls = re.split(r'[,\n\s]+', sub_urls_raw.strip())
         sub_urls = [u.strip() for u in sub_urls if u.strip()]
-        log(f"[订阅链接] 共 {len(sub_urls)} 个:")
+        log(f"[\u8ba2\u9605\u94fe\u63a5] \u5171 {len(sub_urls)} \u4e2a:")
         for i, url in enumerate(sub_urls, 1):
             try:
                 domain = url.split("//")[1].split("/")[0] if "//" in url else url
@@ -451,42 +448,41 @@ def main():
             except:
                 log(f"  {i}. ***")
 
-        log("\n[步骤1] 开始抓取订阅...")
+        log("\n[\u6b65\u9aa41] \u5f00\u59cb\u6293\u53d6\u8ba2\u9605...")
         all_text = ""
         total_fetched = 0
         for url in sub_urls:
-            log(f"  正在抓取: ...")
+            log(f"  \u6b63\u5728\u6293\u53d6: ...")
             content = fetch_url(url)
             if content:
                 all_text += content + "\n"
                 total_fetched += 1
 
         if not all_text.strip():
-            log("[警告] 所有订阅链接均抓取失败! 切换到演示模式生成示例节点...")
-            log("> 请检查 SUB_URLS 是否配置了正确的订阅链接")
+            log("[\u8b66\u544a] \u6240\u6709\u8ba2\u9605\u94fe\u63a5\u5747\u6293\u53d6\u5931\u8d25! \u5207\u6362\u5230\u6f14\u793a\u6a21\u5f0f\u751f\u6210\u793a\u4f8a\u8282\u70b9...")
+            log("> \u8bf7\u68c0\u67e5 SUB_URLS \u662f\u5426\u914d\u7f6e\u4e86\u6b63\u786e\u7684\u8ba2\u9605\u94fe\u63a5")
             nodes = generate_demo_nodes()
         else:
-            log(f"[抓取完成] 成功: {total_fetched}/{len(sub_urls)}, 总长度: {len(all_text)}")
-            log("\n[步骤2] 提取节点...")
+            log(f"[\u6293\u53d6\u5b8c\u6210] \u6210\u529f: {total_fetched}/{len(sub_urls)}, \u603b\u957f\u5ea6: {len(all_text)}")
+            log("\n[\u6b65\u9aa42] \u63d0\u53d6\u8282\u70b9...")
             nodes = extract_nodes(all_text)
-            log(f"[提取完成] 共发现 {len(nodes)} 个节点")
+            log(f"[\u63d0\u53d6\u5b8c\u6210] \u5171\u53d1\u73b0 {len(nodes)} \u4e2a\u8282\u70b9")
             if not nodes:
-                log("[警告] 未提取到任何有效节点! 切换到演示模式...")
+                log("[\u8b66\u544a] \u672a\u63d0\u53d6\u5230\u4efb\u4f55\u6709\u6548\u8282\u70b9! \u5207\u6362\u5230\u6f14\u793a\u6a21\u5f0f...")
                 nodes = generate_demo_nodes()
 
     if not nodes:
-        log("[错误] 无可用节点!")
+        log("[\u9519\u8bef] \u65e0\u53ef\u7528\u8282\u70b9!")
         sys.exit(1)
 
-    log("\n[步骤3] 去重处理...")
+    log("\n[\u6b65\u9aa43] \u91cd\u5904\u7406...")
     nodes = deduplicate(nodes)
 
-    log("\n[步骤4] 存活测试...")
+    log("\n[\u6b65\u9aa44] \u5b58\u6d3b\u6d4b\u8bd5...")
     nodes_before_test = len(nodes)
     nodes = filter_alive(nodes)
     if len(nodes) == 0 and nodes_before_test > 0:
-        log("[提示] 所有节点TCP握手失败(可能为示例节点/网络限制)，保留去重后全部节点继续生成配置文件...")
-        # 重新获取去重后的节点（不做存活测试过滤）
+        log("[\u63d0\u793a] \u6240\u6709\u8282\u70b9TCP\u63e1\u624b\u5931\u8d25(\u53ef\u80fd\u4e3a\u793a\u4f8a\u8282\u70b9/\u7f51\u7edc\u9650\u5236)\uff0c\u4fdd\u7559\u53bb\u91cd\u540e\u5168\u90e8\u8282\u70b9\u7ee7\u7eed\u751f\u6210\u914d\u7f6e\u6587\u4ef6...")
         if sub_urls_raw:
             sub_urls = re.split(r'[,\n\s]+', sub_urls_raw.strip())
             sub_urls = [u.strip() for u in sub_urls if u.strip()]
@@ -503,32 +499,32 @@ def main():
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    log("\n[步骤5] 生成输出文件...")
+    log("\n[\u6b65\u9aa45] \u751f\u6210\u8f93\u51fa\u6587\u4ef6...")
 
     raw_content = generate_raw_text(nodes)
     RAW_FILE.write_text(raw_content, encoding="utf-8")
-    log(f"  ✓ raw.txt ({len(nodes)} 个节点)")
+    log(f"  \u2713 raw.txt ({len(nodes)} \u4e2a\u8282\u70b9)")
 
     try:
         import yaml
         clash_content = generate_clash_yaml(nodes)
         CLASH_FILE.write_text(clash_content, encoding="utf-8")
-        log(f"  ✓ clash.yaml")
+        log(f"  \u2713 clash.yaml")
     except ImportError:
-        log("  安装 PyYAML...")
+        log("  \u5b89\u88c5 PyYAML...")
         os.system("pip install pyyaml -q")
         import yaml
         clash_content = generate_clash_yaml(nodes)
         CLASH_FILE.write_text(clash_content, encoding="utf-8")
-        log(f"  ✓ clash.yaml (已安装 PyYAML)")
+        log(f"  \u2713 clash.yaml (\u5df2\u5b89\u88c5 PyYAML)")
 
     singbox_content = generate_singbox_json(nodes)
     SINGBOX_FILE.write_text(singbox_content, encoding="utf-8")
-    log(f"  ✓ singbox.json")
+    log(f"  \u2713 singbox.json")
 
     log("\n" + "=" * 60)
-    log(f"完成! 最终有效节点数: {len(nodes)}")
-    log(f"输出目录: {OUTPUT_DIR}")
+    log(f"\u5b8c\u6210! \u6700\u7ec8\u6709\u6548\u8282\u70b9\u6570: {len(nodes)}")
+    log(f"\u8f93\u51fa\u76ee\u5f55: {OUTPUT_DIR}")
     log("=" * 60)
 
 if __name__ == "__main__":
