@@ -1,0 +1,82 @@
+mixed-port: 7890
+allow-lan: false
+mode: rule
+log-level: info
+unified-delay: true
+dns:
+  enable: true
+  listen: 0.0.0.0:53
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  nameserver:
+  - https://dns.alidns.com/dns-query
+  - https://doh.pub/dns-query
+proxies:
+- name: 节点1_🇭🇰 HK-示侊节点01
+  type: vmess
+  server: hk.example.com
+  port: 443
+  cidr: auto
+  tls: false
+  sni: hk.example.com
+  network: ws
+  uuid: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+  alterId: 0
+  cipher: auto
+  ws-opts:
+    path: /ws
+    headers:
+      Host: hk.example.com
+- name: 节点2_🇯🇵 JP-示侊节点02
+  type: vmess
+  server: jp.example.com
+  port: 443
+  cidr: auto
+  tls: false
+  sni: hk.example.com
+  network: ws
+  uuid: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+  alterId: 0
+  cipher: auto
+  ws-opts:
+    path: /ws
+    headers:
+      Host: hk.example.com
+- name: 节点3_🇬🇨 SG-示侊节点03
+  type: trojan
+  server: sg.example.com
+  port: 443
+  password: password123
+  sni: ''
+  skip-cert-verify: false
+  udp: true
+- name: 节点4_🇺🇸 US-示侊节点04
+  type: ss
+  server: us.example.com
+  port: 8388
+  cipher: aes-256-gcm
+  password: testpwd123==
+  udp: true
+proxy-groups:
+- name: ✨ 自动选择
+  type: url-test
+  proxies:
+  - 节点1_🇭🇰 HK-示侊节点01
+  - 节点2_🇯🇵 JP-示侊节点02
+  - 节点3_🇬🇨 SG-示侊节点03
+  - 节点4_🇺🇸 US-示侊节点04
+  url: http://www.gstatic.com/generate_204
+  interval: 300
+  tolerance: 50
+- name: 🔯 节点选择
+  type: select
+  proxies:
+  - ✨ 自动选择
+  - DIRECT
+  - 节点1_🇭🇰 HK-示侊节点01
+  - 节点2_🇯🇵 JP-示侊节点02
+  - 节点3_🇬🇨 SG-示侊节点03
+  - 节点4_🇺🇸 US-示侊节点04
+rules:
+- GEOIP,CN,DIRECT
+- MATCH,🔯 节点选择
